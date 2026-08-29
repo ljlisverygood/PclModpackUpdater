@@ -111,8 +111,9 @@ dotnet publish server/PclModpackUpdater.Server/PclModpackUpdater.Server.csproj -
 
 ## CI / 自动发布
 
-- 推送到 `main`：GitHub Actions 自动构建客户端与后端；
-- 推送 `v*` 标签（如 `v1.0.0`）：自动构建并发布 Inno Setup 安装包、客户端绿色版 zip、后端 zip 到 Releases。
+- 推送到 `main`：**自动发布 Release**——工作流读取客户端 csproj 的 `<Version>`，该版本号尚未发布时自动构建并创建 Release（Inno Setup 安装包 + 客户端绿色版 zip + 后端 zip），已发布过则跳过；
+- 发新版的操作：把 `src/PclModpackUpdater/PclModpackUpdater.csproj` 里的 `<Version>` 改成新版本号（如 `1.1.0`），推送到 `main` 即可；
+- 也可在 Actions 页面手动触发（workflow dispatch）。
 
 ## 许可证
 

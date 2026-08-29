@@ -2,7 +2,8 @@ name: Release
 
 on:
   push:
-    tags: [ 'v*' ]
+    branches: [ main ]
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -17,25 +18,50 @@ jobs:
         with:
           dotnet-version: 8.0.x
 
+      - name: Decide release
+        id: check
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $csproj = Get-Content -Raw "src/PclModpackUpdater/PclModpackUpdater.csproj"
+          $version = [regex]::Match($csproj, '<Version>([^<]+)</Version>').Groups[1].Value
+          if (-not $version) { Write-Error "csproj 中未找到 <Version>"; exit 1 }
+          "version=$version" >> $env:GITHUB_OUTPUT
+          gh release view "v$version" --repo "$env:GITHUB_REPOSITORY" > $null 2>&1
+          if ($LASTEXITCODE -eq 0) {
+            "should_release=false" >> $env:GITHUB_OUTPUT
+            Write-Host "v$version 已发布，跳过本次发布"
+          } else {
+            "should_release=true" >> $env:GITHUB_OUTPUT
+            Write-Host "v$version 尚未发布，开始构建并创建 Release"
+          }
+
       - name: Publish client
+        if: steps.check.outputs.should_release == 'true'
         run: dotnet publish src/PclModpackUpdater/PclModpackUpdater.csproj -c Release -p:Platform=x64 -p:RuntimeIdentifier=win-x64
 
       - name: Stage publish output
+        if: steps.check.outputs.should_release == 'true'
         shell: pwsh
         run: |
           robocopy "src/PclModpackUpdater/bin/x64/Release/net8.0-windows10.0.19041.0/win-x64/publish" "publish" /E /NFL /NDL /NJH /NJS
           if ($LASTEXITCODE -ge 8) { exit 1 } else { exit 0 }
 
       - name: Publish server
+        if: steps.check.outputs.should_release == 'true'
         run: dotnet publish server/PclModpackUpdater.Server/PclModpackUpdater.Server.csproj -c Release -o server-dist
 
       - name: Zip server
+        if: steps.check.outputs.should_release == 'true'
         run: Compress-Archive -Path "server-dist/*" -DestinationPath "PclModpackUpdater-Server.zip"
 
       - name: Install Inno Setup
+        if: steps.check.outputs.should_release == 'true'
         run: choco install innosetup -y --no-progress
 
       - name: Build installer
+        if: steps.check.outputs.should_release == 'true'
         shell: pwsh
         run: |
           $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
@@ -44,11 +70,15 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit 1 }
 
       - name: Zip portable
+        if: steps.check.outputs.should_release == 'true'
         run: Compress-Archive -Path "publish/*" -DestinationPath "PclModpackUpdater-win-x64.zip"
 
       - name: Create release
+        if: steps.check.outputs.should_release == 'true'
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: v${{ steps.check.outputs.version }}
+          name: v${{ steps.check.outputs.version }}
           files: |
             installer/dist/PclModpackUpdater-Setup-*.exe
             PclModpackUpdater-win-x64.zip
