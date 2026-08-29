@@ -4,7 +4,8 @@ namespace PclModpackUpdater.Services;
 
 public static class PclLauncher
 {
-    /// <summary>在目录中查找 PCL 启动器主程序（排除本程序自身）。</summary>
+    /// <summary>在目录中查找启动器主程序（排除本程序自身）。
+    /// 依次匹配 Plain Craft Launcher / PCL 命名，找不到时允许使用目录中的任意 exe。</summary>
     public static string? FindPclExe(string? directory)
     {
         if (string.IsNullOrWhiteSpace(directory) || !Directory.Exists(directory))
@@ -17,7 +18,11 @@ public static class PclLauncher
             .Where(p => !string.Equals(p, self, StringComparison.OrdinalIgnoreCase))
             .ToList();
 
-        return exes.FirstOrDefault(p => Path.GetFileName(p).Contains("pcl", StringComparison.OrdinalIgnoreCase))
+        static string Normalize(string path) =>
+            Path.GetFileNameWithoutExtension(path).Replace(" ", "").ToLowerInvariant();
+
+        return exes.FirstOrDefault(p => Normalize(p).Contains("plaincraftlauncher"))
+            ?? exes.FirstOrDefault(p => Normalize(p).Contains("pcl"))
             ?? exes.FirstOrDefault();
     }
 

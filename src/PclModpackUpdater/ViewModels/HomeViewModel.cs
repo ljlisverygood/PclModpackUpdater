@@ -101,8 +101,8 @@ public partial class HomeViewModel : ObservableObject
         }
 
         lines.Add(PclLauncher.FindPclExe(dir) is { } pcl
-            ? $"检测到启动器：{Path.GetFileName(pcl)}"
-            : "未检测到启动器（PCL.exe），但不影响下载");
+            ? $"启动器：{Path.GetFileName(pcl)}"
+            : "目录中没有 .exe，不影响下载整合包");
 
         LocalStateText = string.Join('\n', lines);
     }
@@ -247,7 +247,7 @@ public partial class HomeViewModel : ObservableObject
         {
             if (PclLauncher.FindPclExe(PclDirectoryText.Trim()) is not { } pcl)
             {
-                ShowStatus("未找到 PCL", "目录中没有可执行文件，请确认选择的是 PCL.exe 所在文件夹。", InfoBarSeverity.Error);
+                ShowStatus("未找到启动器", "目录中没有可执行文件，请确认选择的是 Plain Craft Launcher.exe 所在文件夹。", InfoBarSeverity.Error);
                 return;
             }
 
