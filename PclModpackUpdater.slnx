@@ -1,4 +1,7 @@
 <Solution>
+  <Folder Name="/server/">
+    <Project Path="server/PclModpackUpdater.Server/PclModpackUpdater.Server.csproj" />
+  </Folder>
   <Folder Name="/src/">
     <Project Path="src/PclModpackUpdater/PclModpackUpdater.csproj" />
   </Folder>

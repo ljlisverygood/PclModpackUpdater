@@ -15,10 +15,13 @@ jobs:
         with:
           dotnet-version: 8.0.x
 
-      - name: Build
+      - name: Build client
         run: dotnet build src/PclModpackUpdater/PclModpackUpdater.csproj -c Release -p:Platform=x64 -p:RuntimeIdentifier=win-x64
 
-      - name: Upload artifact
+      - name: Build server
+        run: dotnet build server/PclModpackUpdater.Server/PclModpackUpdater.Server.csproj -c Release
+
+      - name: Upload client artifact
         uses: actions/upload-artifact@v4
         with:
           name: PclModpackUpdater-win-x64

@@ -5,6 +5,7 @@ obj/
 artifacts/
 publish/
 installer/dist/
+server-dist/
 AppPackages/
 BundleArtifacts/
 *.user

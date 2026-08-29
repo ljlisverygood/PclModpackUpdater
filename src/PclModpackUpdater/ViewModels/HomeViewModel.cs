@@ -122,18 +122,7 @@ public partial class HomeViewModel : ObservableObject
         IsChecking = true;
         try
         {
-            var result = await _updateService.CheckAsync(App.Config, ct);
-            if (result.Success)
-            {
-                ShowStatus(
-                    result.HasUpdate ? "有更新" : "已是最新",
-                    result.Message,
-                    result.HasUpdate ? InfoBarSeverity.Warning : InfoBarSeverity.Success);
-            }
-            else
-            {
-                ShowStatus("检查失败", result.Message, InfoBarSeverity.Error);
-            }
+            ShowCheckResult(await _updateService.CheckAsync(App.Config, ct));
         }
         catch (OperationCanceledException)
         {
@@ -146,6 +135,54 @@ public partial class HomeViewModel : ObservableObject
         {
             IsChecking = false;
             RefreshLocalState();
+        }
+    }
+
+    /// <summary>一键更新：检查更新源，发现新版本时直接下载。</summary>
+    [RelayCommand]
+    private async Task OneClickUpdateAsync(CancellationToken ct)
+    {
+        SaveToConfig();
+        IsChecking = true;
+        CheckOutcome result;
+        try
+        {
+            result = await _updateService.CheckAsync(App.Config, ct);
+        }
+        catch (OperationCanceledException)
+        {
+            IsChecking = false;
+            return;
+        }
+        catch (Exception ex)
+        {
+            IsChecking = false;
+            ShowStatus("检查失败", ex.Message, InfoBarSeverity.Error);
+            return;
+        }
+
+        IsChecking = false;
+        ShowCheckResult(result);
+        RefreshLocalState();
+
+        if (result.Success && result.HasUpdate)
+        {
+            await DownloadAsync(ct);
+        }
+    }
+
+    private void ShowCheckResult(CheckOutcome result)
+    {
+        if (result.Success)
+        {
+            ShowStatus(
+                result.HasUpdate ? "有更新" : "已是最新",
+                result.Message,
+                result.HasUpdate ? InfoBarSeverity.Warning : InfoBarSeverity.Success);
+        }
+        else
+        {
+            ShowStatus("检查失败", result.Message, InfoBarSeverity.Error);
         }
     }
 

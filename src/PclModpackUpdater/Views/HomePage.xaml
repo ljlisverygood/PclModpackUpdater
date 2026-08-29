@@ -29,8 +29,8 @@
                     <TextBlock Text="更新源"
                                Style="{StaticResource SubtitleTextBlockStyle}" />
 
-                    <TextBox Header="整合包下载直链（可填多个镜像，每行一个，按顺序尝试）"
-                             PlaceholderText="https://github.com/用户名/仓库/releases/latest/download/modpack.zip"
+                    <TextBox Header="更新源（后端服务地址 http://主机:端口，或 zip 直链；可填多个镜像，每行一个，按顺序尝试）"
+                             PlaceholderText="http://your-server:8080 或 https://…/modpack.zip"
                              Text="{x:Bind ViewModel.UrlsText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                              AcceptsReturn="True"
                              MinHeight="96"
@@ -56,7 +56,14 @@
 
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <Button Style="{StaticResource AccentButtonStyle}"
-                                Command="{x:Bind ViewModel.CheckCommand}"
+                                Command="{x:Bind ViewModel.OneClickUpdateCommand}"
+                                IsEnabled="{x:Bind ViewModel.IsIdle, Mode=OneWay}">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <FontIcon Glyph="&#xE72C;" FontSize="16" />
+                                <TextBlock Text="一键更新" />
+                            </StackPanel>
+                        </Button>
+                        <Button Command="{x:Bind ViewModel.CheckCommand}"
                                 IsEnabled="{x:Bind ViewModel.IsIdle, Mode=OneWay}">
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <FontIcon Glyph="&#xE777;" FontSize="16" />

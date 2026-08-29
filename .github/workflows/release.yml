@@ -17,7 +17,7 @@ jobs:
         with:
           dotnet-version: 8.0.x
 
-      - name: Publish
+      - name: Publish client
         run: dotnet publish src/PclModpackUpdater/PclModpackUpdater.csproj -c Release -p:Platform=x64 -p:RuntimeIdentifier=win-x64
 
       - name: Stage publish output
@@ -25,6 +25,12 @@ jobs:
         run: |
           robocopy "src/PclModpackUpdater/bin/x64/Release/net8.0-windows10.0.19041.0/win-x64/publish" "publish" /E /NFL /NDL /NJH /NJS
           if ($LASTEXITCODE -ge 8) { exit 1 } else { exit 0 }
+
+      - name: Publish server
+        run: dotnet publish server/PclModpackUpdater.Server/PclModpackUpdater.Server.csproj -c Release -o server-dist
+
+      - name: Zip server
+        run: Compress-Archive -Path "server-dist/*" -DestinationPath "PclModpackUpdater-Server.zip"
 
       - name: Install Inno Setup
         run: choco install innosetup -y --no-progress
@@ -46,4 +52,5 @@ jobs:
           files: |
             installer/dist/PclModpackUpdater-Setup-*.exe
             PclModpackUpdater-win-x64.zip
+            PclModpackUpdater-Server.zip
           generate_release_notes: true

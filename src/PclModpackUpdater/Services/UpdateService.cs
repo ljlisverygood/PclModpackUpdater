@@ -1,11 +1,12 @@
-using System.Diagnostics;
 using System.IO;
 using System.Text.Json;
 using PclModpackUpdater.Models;
 
 namespace PclModpackUpdater.Services;
 
-/// <summary>负责检查更新源并把最新整合包下载为 PCL 目录下的 modpack.zip。</summary>
+/// <summary>负责检查更新源并把最新整合包下载为 PCL 目录下的 modpack.zip。
+/// 支持两种更新源写法：后端服务地址（http://主机:端口，自动使用 /api/version 与 /api/download），
+/// 或 zip 文件直链（可配合可选的 version.json）。</summary>
 public sealed class UpdateService
 {
     private static readonly HttpClient Http = CreateHttpClient();
@@ -24,6 +25,29 @@ public sealed class UpdateService
         return client;
     }
 
+    private sealed record Endpoint(bool IsBackend, string InfoUrl, string DownloadUrl);
+
+    /// <summary>裸地址（仅协议+主机+端口）视为后端服务，自动展开为 API 端点。</summary>
+    private static bool TryResolve(string url, out Endpoint endpoint)
+    {
+        endpoint = new Endpoint(false, url, url);
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var parsed)
+            || (parsed.Scheme != Uri.UriSchemeHttp && parsed.Scheme != Uri.UriSchemeHttps))
+        {
+            return false;
+        }
+
+        if (parsed.AbsolutePath is "/" or "")
+        {
+            endpoint = new Endpoint(
+                true,
+                new Uri(parsed, "api/version").ToString(),
+                new Uri(parsed, "api/download").ToString());
+        }
+
+        return true;
+    }
+
     public static IReadOnlyList<string> GetUrls(AppConfig config) =>
         config.DownloadUrls.Select(u => u.Trim()).Where(u => u.Length > 0).Distinct().ToList();
 
@@ -32,13 +56,13 @@ public sealed class UpdateService
         var urls = GetUrls(config);
         if (urls.Count == 0)
         {
-            return new CheckOutcome(false, "请先填写整合包下载直链。", false, false, null, null);
+            return new CheckOutcome(false, "请先填写更新源地址（后端服务地址或 zip 直链）。", false, false, null, null);
         }
 
         var dir = config.PclDirectory;
         if (string.IsNullOrWhiteSpace(dir) || !Directory.Exists(dir))
         {
-            return new CheckOutcome(false, "PCL 目录不存在，请先选择 PCL.exe 所在文件夹。", false, false, null, null);
+            return new CheckOutcome(false, "PCL 目录不存在，请先选择 Plain Craft Launcher.exe 所在文件夹。", false, false, null, null);
         }
 
         var installed = MarkerService.Read(dir);
@@ -47,14 +71,14 @@ public sealed class UpdateService
 
         if (remote is null)
         {
-            return new CheckOutcome(false, "无法连接更新源，请检查网络或下载地址。", false, zipExists, installed, null);
+            return new CheckOutcome(false, "无法连接更新源，请检查网络或地址（后端地址或 zip 直链）。", false, zipExists, installed, null);
         }
 
         var hasUpdate = NeedsUpdate(installed, zipExists, remote);
         var message = hasUpdate switch
         {
-            true when !zipExists => "未找到 modpack.zip，点击「下载整合包」开始安装。",
-            true => $"发现新版本{(string.IsNullOrEmpty(remote.Version) ? "" : $"：{remote.Version}")}，点击「下载整合包」更新。",
+            true when !zipExists => "未找到 modpack.zip，点击「一键更新」开始安装。",
+            true => $"发现新版本{(string.IsNullOrEmpty(remote.Version) ? "" : $"：{remote.Version}")}，点击「一键更新」开始下载。",
             false => $"已是最新版本{(string.IsNullOrEmpty(installed?.Version) ? "" : $"（{installed.Version}）")}。",
         };
 
@@ -68,13 +92,13 @@ public sealed class UpdateService
         var urls = GetUrls(config);
         if (urls.Count == 0)
         {
-            throw new InvalidOperationException("请先填写整合包下载直链。");
+            throw new InvalidOperationException("请先填写更新源地址（后端服务地址或 zip 直链）。");
         }
 
         var dir = config.PclDirectory;
         if (string.IsNullOrWhiteSpace(dir) || !Directory.Exists(dir))
         {
-            throw new InvalidOperationException("PCL 目录不存在，请先选择 PCL.exe 所在文件夹。");
+            throw new InvalidOperationException("PCL 目录不存在，请先选择 Plain Craft Launcher.exe 所在文件夹。");
         }
 
         Directory.CreateDirectory(dir);
@@ -89,14 +113,20 @@ public sealed class UpdateService
         Exception? lastError = null;
         foreach (var url in urls)
         {
+            if (!TryResolve(url, out var endpoint))
+            {
+                lastError = new InvalidOperationException($"无效的更新源地址：{url}");
+                continue;
+            }
+
             try
             {
-                var downloaded = await DownloadFileAsync(url, partPath, progress, ct);
+                var downloaded = await DownloadFileAsync(endpoint.DownloadUrl, partPath, progress, ct);
 
                 if (!string.IsNullOrWhiteSpace(expectedSha)
                     && !string.Equals(downloaded.Sha256, expectedSha, StringComparison.OrdinalIgnoreCase))
                 {
-                    throw new InvalidOperationException("下载文件的 SHA256 与 version.json 不一致，已中止安装。");
+                    throw new InvalidOperationException("下载文件的 SHA256 与版本信息不一致，已中止安装。");
                 }
 
                 File.Move(partPath, zipPath, true);
@@ -126,7 +156,7 @@ public sealed class UpdateService
             }
         }
 
-        throw new InvalidOperationException($"所有下载地址均失败，最后一个错误：{lastError?.Message}", lastError);
+        throw new InvalidOperationException($"所有更新源均失败，最后一个错误：{lastError?.Message}", lastError);
     }
 
     private async Task<RemoteInfo?> TryGetRemoteAsync(AppConfig config, CancellationToken ct)
@@ -146,7 +176,7 @@ public sealed class UpdateService
         }
     }
 
-    /// <summary>优先读 version.json，拿不到时退回对直链做 HEAD 探测。</summary>
+    /// <summary>优先读 version.json；否则遍历更新源：后端地址读 /api/version，直链做 HEAD 探测。</summary>
     private async Task<RemoteInfo?> GetRemoteInfoAsync(AppConfig config, CancellationToken ct)
     {
         var versionUrl = config.VersionUrl?.Trim();
@@ -157,21 +187,8 @@ public sealed class UpdateService
                 using var resp = await Http.GetAsync(versionUrl, HttpCompletionOption.ResponseHeadersRead, ct);
                 resp.EnsureSuccessStatusCode();
                 await using var stream = await resp.Content.ReadAsStreamAsync(ct);
-                using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
-                var root = doc.RootElement;
-
-                string? GetStr(string name) =>
-                    root.TryGetProperty(name, out var el) && el.ValueKind == JsonValueKind.String ? el.GetString() : null;
-                long? GetLong(string name) =>
-                    root.TryGetProperty(name, out var el) && el.TryGetInt64(out var v) ? v : null;
-
-                return new RemoteInfo(
-                    GetStr("version"),
-                    GetStr("sha256"),
-                    GetStr("notes"),
-                    GetLong("sizeBytes"),
-                    resp.Headers.ETag?.Tag,
-                    resp.Content.Headers.LastModified?.ToString("R"));
+                return await ParseVersionJsonAsync(stream, ct,
+                    resp.Headers.ETag?.Tag, resp.Content.Headers.LastModified?.ToString("R"));
             }
             catch (OperationCanceledException)
             {
@@ -179,24 +196,38 @@ public sealed class UpdateService
             }
             catch
             {
-                // version.json 获取失败时回退到直连探测
+                // version.json 获取失败时回退到更新源探测
             }
         }
 
         foreach (var url in GetUrls(config))
         {
+            if (!TryResolve(url, out var endpoint))
+            {
+                continue;
+            }
+
             try
             {
-                using var request = new HttpRequestMessage(HttpMethod.Head, url);
-                using var resp = await Http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
-                resp.EnsureSuccessStatusCode();
+                if (endpoint.IsBackend)
+                {
+                    using var resp = await Http.GetAsync(endpoint.InfoUrl, HttpCompletionOption.ResponseHeadersRead, ct);
+                    resp.EnsureSuccessStatusCode();
+                    await using var stream = await resp.Content.ReadAsStreamAsync(ct);
+                    return await ParseVersionJsonAsync(stream, ct,
+                        resp.Headers.ETag?.Tag, resp.Content.Headers.LastModified?.ToString("R"));
+                }
+
+                using var request = new HttpRequestMessage(HttpMethod.Head, endpoint.DownloadUrl);
+                using var head = await Http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
+                head.EnsureSuccessStatusCode();
                 return new RemoteInfo(
                     null,
                     null,
                     null,
-                    resp.Content.Headers.ContentLength,
-                    resp.Headers.ETag?.Tag,
-                    resp.Content.Headers.LastModified?.ToString("R"));
+                    head.Content.Headers.ContentLength,
+                    head.Headers.ETag?.Tag,
+                    head.Content.Headers.LastModified?.ToString("R"));
             }
             catch (OperationCanceledException)
             {
@@ -204,11 +235,32 @@ public sealed class UpdateService
             }
             catch
             {
-                // 尝试下一个镜像
+                // 尝试下一个更新源
             }
         }
 
         return null;
+    }
+
+    /// <summary>解析 version.json / 后端 /api/version 的响应（字段：version、sha256、sizeBytes、notes）。</summary>
+    private static async Task<RemoteInfo> ParseVersionJsonAsync(
+        Stream stream, CancellationToken ct, string? etag, string? lastModified)
+    {
+        using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
+        var root = doc.RootElement;
+
+        string? GetStr(string name) =>
+            root.TryGetProperty(name, out var el) && el.ValueKind == JsonValueKind.String ? el.GetString() : null;
+        long? GetLong(string name) =>
+            root.TryGetProperty(name, out var el) && el.TryGetInt64(out var v) ? v : null;
+
+        return new RemoteInfo(
+            GetStr("version"),
+            GetStr("sha256"),
+            GetStr("notes"),
+            GetLong("sizeBytes"),
+            etag,
+            lastModified);
     }
 
     private static bool NeedsUpdate(InstalledInfo? installed, bool zipExists, RemoteInfo remote)
