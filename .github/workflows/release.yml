@@ -36,6 +36,7 @@ jobs:
             "should_release=true" >> $env:GITHUB_OUTPUT
             Write-Host "v$version 尚未发布，开始构建并创建 Release"
           }
+          exit 0
 
       - name: Publish client
         if: steps.check.outputs.should_release == 'true'
