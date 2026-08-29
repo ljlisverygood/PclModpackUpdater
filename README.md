@@ -109,10 +109,11 @@ dotnet publish server/PclModpackUpdater.Server/PclModpackUpdater.Server.csproj -
 2. 把客户端 publish 输出复制到仓库根目录的 `publish\` 文件夹；
 3. 执行 `ISCC.exe installer\PclModpackUpdater.iss`，产物在 `installer\dist\`。
 
-## CI / 自动发布
+## 版本号规则与自动发布
 
-- 推送到 `main`：**自动发布 Release**——工作流读取客户端 csproj 的 `<Version>`，该版本号尚未发布时自动构建并创建 Release（Inno Setup 安装包 + 客户端绿色版 zip + 后端 zip），已发布过则跳过；
-- 发新版的操作：把 `src/PclModpackUpdater/PclModpackUpdater.csproj` 里的 `<Version>` 改成新版本号（如 `1.1.0`），推送到 `main` 即可；
+- **版本号规则**：常规更新 +0.0.1（patch，如 1.0.0 → 1.0.1）；大功能更新 +0.1（minor，如 1.0.1 → 1.1.0）；
+- **发新版**：运行 `powershell -File scripts\bump.ps1 patch`（大功能用 `minor`），把版本号变更提交并推送到 `main`；
+- 推送到 `main` 后**自动发布 Release**：工作流读取 csproj 的 `<Version>`，该版本尚未发布时自动构建并创建 Release（Inno Setup 安装包 + 客户端绿色版 zip + 后端 zip），已发布过则自动跳过；
 - 也可在 Actions 页面手动触发（workflow dispatch）。
 
 ## 许可证
