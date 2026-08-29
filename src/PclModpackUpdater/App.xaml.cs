@@ -16,6 +16,12 @@ public partial class App : Application
     {
         InitializeComponent();
         Config = ConfigService.Load();
+
+        // 兼容旧配置里更新源为空的情况：回退到内置更新源
+        if (Config.DownloadUrls.Count == 0)
+        {
+            Config.DownloadUrls = new() { AppConfig.DefaultUpdateSource };
+        }
     }
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)

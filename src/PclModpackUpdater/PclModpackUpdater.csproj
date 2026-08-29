@@ -15,7 +15,7 @@
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
     <ImplicitUsings>enable</ImplicitUsings>
-    <Version>1.1.0</Version>
+    <Version>1.1.1</Version>
     <AssemblyTitle>PCL 整合包更新器</AssemblyTitle>
     <Product>PCL 整合包更新器</Product>
     <Description>基于 PCL 启动器 modpack.zip 自动安装机制的整合包自动更新工具</Description>
