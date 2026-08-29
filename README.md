@@ -111,8 +111,11 @@ dotnet publish server/PclModpackUpdater.Server/PclModpackUpdater.Server.csproj -
 
 ## 版本号规则与自动发布
 
-- **版本号规则**：常规更新 +0.0.1（patch，如 1.0.0 → 1.0.1）；大功能更新 +0.1（minor，如 1.0.1 → 1.1.0）；
-- **发新版**：运行 `powershell -File scripts\bump.ps1 patch`（大功能用 `minor`），把版本号变更提交并推送到 `main`；
+- **版本号规则**（三段式 major.minor.patch）：
+  - 大版本更新：+1.0（major，如 1.0 → 2.0.0）；
+  - 功能更新：+0.1（minor，如 1.0.0 → 1.1.0）；
+  - 优化体验 / 修 bug：+0.0.1（patch，如 1.1.0 → 1.1.1）；
+- **发新版**：运行 `powershell -File scripts\bump.ps1 patch`（功能更新用 `minor`，大版本用 `major`），把版本号变更提交并推送到 `main`；
 - 推送到 `main` 后**自动发布 Release**：工作流读取 csproj 的 `<Version>`，该版本尚未发布时自动构建并创建 Release（Inno Setup 安装包 + 客户端绿色版 zip + 后端 zip），已发布过则自动跳过；
 - 也可在 Actions 页面手动触发（workflow dispatch）。
 
