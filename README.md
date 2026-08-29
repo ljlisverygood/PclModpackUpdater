@@ -2,19 +2,31 @@
 
 基于 **WinUI 3** 的《我的世界》整合包自动更新工具，配合 [Plain Craft Launcher（PCL 启动器）](https://github.com/Hex-Dragon/PCL2) 的 `modpack.zip` 自动安装机制使用。
 
+**本程序是独立应用，可安装在任意位置，无需放进 PCL 目录**——首次使用时选择 `PCL.exe` 所在文件夹即可。
+
 ## 工作原理
 
 PCL 启动器有一个内置钩子：**当 `PCL.exe` 同级目录下存在 `modpack.zip` 时，启动 PCL 会自动识别并提示安装该整合包**。
 
-本程序就是围绕这个机制工作：
+本程序围绕这个机制工作：
 
-1. 把本程序 `PclModpackUpdater.exe` 放到 `PCL.exe` 同级目录（或启动后在设置里指定 PCL 目录）；
+1. 安装并启动本程序，选择 `PCL.exe` 所在文件夹（只需选一次，之后会记住）；
 2. 填写整合包的下载直链（支持多镜像，每行一个，按顺序尝试）；
 3. 点击「检查更新」→「下载整合包」，程序会把最新整合包下载为 PCL 目录下的 `modpack.zip`（先写 `.part` 临时文件，校验通过后再落盘）；
 4. 启动 PCL，即可自动提示安装最新整合包。
 
+## 安装
+
+从 [Releases](https://github.com/ljlisverygood/PclModpackUpdater/releases) 下载：
+
+- **`PclModpackUpdater-Setup-x.x.x.exe`**：Inno Setup 安装包（简体中文安装界面），双击安装，可选创建桌面图标；
+- **`PclModpackUpdater-win-x64.zip`**：绿色版，解压即用。
+
+> 安装目录下会有大量以语言代码命名的文件夹（`en-US`、`zh-CN`、`ja-JP` 等），这是 WinUI 运行库自带的多语言资源，请勿删除。卸载时安装程序会一并清理。
+
 ## 功能
 
+- 独立安装，PCL 目录可自由选择并记忆
 - 多镜像下载直链，自动按顺序重试
 - 可选的 `version.json` 版本清单：只在远端版本变化时才下载整包，避免重复下载
 - SHA256 校验，防止下载损坏
@@ -46,12 +58,27 @@ PCL 启动器有一个内置钩子：**当 `PCL.exe` 同级目录下存在 `modp
 需要 Windows 10 1809+ 与 .NET 8 SDK：
 
 ```bash
-dotnet build src/PclModpackUpdater/PclModpackUpdater.csproj -c Release -p:Platform=x64 -p:RuntimeIdentifier=win-x64
+dotnet publish src/PclModpackUpdater/PclModpackUpdater.csproj -c Release -p:Platform=x64 -p:RuntimeIdentifier=win-x64
 ```
 
-产物位于 `src/PclModpackUpdater/bin/x64/Release/net8.0-windows10.0.19041.0/win-x64/`。
+产物位于 `src/PclModpackUpdater/bin/x64/Release/net8.0-windows10.0.19041.0/win-x64/publish/`。
 
-推送 `v*` 标签时，GitHub Actions 会自动构建并发布 win-x64 压缩包到 Releases。
+## 本地打安装包（Inno Setup 6）
+
+1. 安装 [Inno Setup 6.5+](https://jrsoftware.org/isdl.php)；
+2. 把 publish 输出复制到仓库根目录的 `publish\` 文件夹；
+3. 执行：
+
+```bash
+ISCC.exe installer\PclModpackUpdater.iss
+```
+
+生成的安装包在 `installer\dist\PclModpackUpdater-Setup-*.exe`。
+
+## CI / 自动发布
+
+- 推送到 `main`：GitHub Actions 自动构建并上传构建产物；
+- 推送 `v*` 标签（如 `v1.0.0`）：自动 publish → 打包 Inno Setup 安装包 → 连同绿色版 zip 一起发布到 Releases。
 
 ## 许可证
 

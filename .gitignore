@@ -3,6 +3,8 @@ obj/
 .vs/
 .idea/
 artifacts/
+publish/
+installer/dist/
 AppPackages/
 BundleArtifacts/
 *.user

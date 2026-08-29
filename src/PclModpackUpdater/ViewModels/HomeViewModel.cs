@@ -16,7 +16,7 @@ public partial class HomeViewModel : ObservableObject
 
     [ObservableProperty] private string urlsText = "";
     [ObservableProperty] private string versionUrlText = "";
-    [ObservableProperty] private string pclDirectoryText = AppContext.BaseDirectory;
+    [ObservableProperty] private string pclDirectoryText = "";
 
     [ObservableProperty] private string statusTitle = "就绪";
     [ObservableProperty] private string statusMessage = "填好更新源后，点「检查更新」开始。";
@@ -53,7 +53,7 @@ public partial class HomeViewModel : ObservableObject
         var config = App.Config;
         UrlsText = string.Join(Environment.NewLine, config.DownloadUrls);
         VersionUrlText = config.VersionUrl ?? "";
-        PclDirectoryText = string.IsNullOrWhiteSpace(config.PclDirectory) ? AppContext.BaseDirectory : config.PclDirectory;
+        PclDirectoryText = config.PclDirectory ?? "";
         RefreshLocalState();
     }
 
@@ -74,7 +74,7 @@ public partial class HomeViewModel : ObservableObject
             .Where(u => u.Length > 0)
             .ToList();
         config.VersionUrl = string.IsNullOrWhiteSpace(VersionUrlText) ? null : VersionUrlText.Trim();
-        config.PclDirectory = string.IsNullOrWhiteSpace(PclDirectoryText) ? AppContext.BaseDirectory : PclDirectoryText.Trim();
+        config.PclDirectory = PclDirectoryText.Trim();
         App.SaveConfig();
     }
 
@@ -83,7 +83,7 @@ public partial class HomeViewModel : ObservableObject
         var dir = PclDirectoryText.Trim();
         if (string.IsNullOrWhiteSpace(dir) || !Directory.Exists(dir))
         {
-            LocalStateText = "PCL 目录未设置或不存在。";
+            LocalStateText = "尚未选择 PCL 目录：点击「浏览…」选择 PCL.exe 所在文件夹即可，本程序无需放在 PCL 目录里。";
             return;
         }
 
